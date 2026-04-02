@@ -1,6 +1,7 @@
 // Native fetch implementation to Hack Club AI API
 export async function POST(req: Request) {
-  const { messages } = await req.json();
+  const reqBody = await req.json();
+  const { messages } = reqBody;
 
   const apiKey = process.env.HACK_CLUB_AI_API_KEY;
   if (!apiKey) {
@@ -15,9 +16,9 @@ export async function POST(req: Request) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'qwen/qwen3-32b',
+      model: reqBody.model || 'qwen/qwen3-32b',
       messages: [
-        { role: 'system', content: 'You are a lively, helpful AI assistant built for Hack Club. You use short, modern responses.' },
+        { role: 'system', content: 'You are a lively, helpful AI assistant built for Hack Club. You use short, modern responses. ALWAYS render code snippets in Markdown.' },
         ...messages
       ],
       stream: true, // Tell the API to stream the response

@@ -1,7 +1,9 @@
 'use client';
 
-import { SendIcon, Bot, User, Sparkles } from 'lucide-react';
+import { SendIcon, Bot, User, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Message = {
   id: string;
@@ -13,11 +15,18 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('qwen/qwen3-32b');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const clearChat = () => {
+    if (confirm('Are you sure you want to clear the conversation?')) {
+      setMessages([]);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,7 +46,7 @@ export default function Chat() {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages: newMessages, model: selectedModel }),
       });
 
       if (!response.ok) throw new Error('Network response was not ok');
@@ -91,6 +100,29 @@ export default function Chat() {
             Hack Club AI 
           </h1>
         </div>
+        
+        <div className="flex items-center gap-3">
+          <select 
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="bg-gray-900 border border-gray-800 text-gray-300 text-sm rounded-lg focus:ring-red-500 focus:border-red-500 block p-2"
+          >
+            <option value="qwen/qwen3-32b">Qwen3 32B (Default)</option>
+            <option value="google/gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+            <option value="deepseek/deepseek-v3.2">DeepSeek V3.2</option>
+            <option value="deepseek/deepseek-r1-0528">DeepSeek R1</option>
+            <option value="moonshotai/kimi-k2.5">Kimi K2.5</option>
+          </select>
+          {messages.length > 0 && (
+            <button 
+              onClick={clearChat}
+              className="text-gray-400 hover:text-red-400 transition-colors p-2"
+              title="Clear Chat"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          )}
+        </div>
       </header>
 
       <main className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6">
@@ -127,8 +159,14 @@ export default function Chat() {
                 <p className="font-semibold mb-1 text-sm text-gray-400">
                   {m.role === 'user' ? 'You' : 'Hackbot'}
                 </p>
-                <div className="prose prose-invert max-w-none text-gray-200 text-[15px] leading-relaxed">
-                  <p className="whitespace-pre-wrap">{m.content || (isLoading && m.role === 'assistant' ? <span className="animate-pulse">...</span> : '')}</p>
+                <div className="prose prose-invert prose-p:leading-relaxed prose-pre:bg-gray-800 prose-pre:border prose-pre:border-gray-700 w-full max-w-none text-gray-200 text-[15px]">
+                  {m.role === 'user' ? (
+                    <p className="whitespace-pre-wrap">{m.content}</p>
+                  ) : (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {m.content || (isLoading && m.role === 'assistant' ? '...' : '')}
+                    </ReactMarkdown>
+                  )}
                 </div>
               </div>
             </div>
