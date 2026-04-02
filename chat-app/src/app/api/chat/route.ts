@@ -1,7 +1,37 @@
+type ChatMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+};
+
+type ChatRequestBody = {
+  model?: string;
+  messages?: ChatMessage[];
+  temperature?: number;
+  max_tokens?: number;
+};
+
+const DEFAULT_MODEL = 'qwen/qwen3-32b';
+
+function normalizeMessages(messages: ChatRequestBody['messages']): ChatMessage[] {
+  return (messages ?? [])
+    .filter((message): message is ChatMessage =>
+      Boolean(message && typeof message.content === 'string' && typeof message.role === 'string')
+    )
+    .map((message) => ({
+      role: message.role,
+      content: message.content.trim(),
+    }))
+    .filter((message) => message.content.length > 0);
+}
+
 // Native fetch implementation to Hack Club AI API
 export async function POST(req: Request) {
-  const reqBody = await req.json();
-  const { messages } = reqBody;
+  const reqBody = (await req.json()) as ChatRequestBody;
+  const messages = normalizeMessages(reqBody.messages);
+
+  if (messages.length === 0) {
+    return Response.json({ error: 'messages must include at least one entry' }, { status: 400 });
+  }
 
   const apiKey = process.env.HACK_CLUB_AI_API_KEY;
   if (!apiKey) {
@@ -16,11 +46,13 @@ export async function POST(req: Request) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: reqBody.model || 'qwen/qwen3-32b',
+      model: reqBody.model || DEFAULT_MODEL,
       messages: [
         { role: 'system', content: 'You are a lively, helpful AI assistant built for Hack Club. You use short, modern responses. ALWAYS render code snippets in Markdown.' },
         ...messages
       ],
+      temperature: reqBody.temperature,
+      max_tokens: reqBody.max_tokens,
       stream: true, // Tell the API to stream the response
     }),
   });
